@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>CNS Box Routes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one column on phones (pick → route → run), two columns on wide screens (pick left, player + timer right). Single dark theme on purpose: it sits beside a game. */
+:root {
+  --ink: #0d1114;
+  --panel: #151b20;
+  --line: #27313a;
+  --fg: #e9e4d8;
+  --muted: #8e978f;
+  --brass: #d7a64a;
+  --amber: #f0b43c;      /* Hidden King / Amber Hand */
+  --sapphire: #5aa7ff;   /* Archmother / Sapphire Flame */
+  --ok: #57c78a;
+  --warn: #f0b43c;
+  --bad: #ef5d5d;
+  --team: var(--amber);
+  --f-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --f-body: "Barlow", "Segoe UI", Roboto, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--ink); color: var(--fg); }
+body { font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+.wrap {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px 40px;
+}
+body[data-side="m"] { --team: var(--sapphire); }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px; }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(28px, 6vw, 40px); letter-spacing: .02em; text-transform: uppercase; margin: 0; line-height: 1; text-wrap: balance; }
+h1 span { color: var(--brass); }
+.src { color: var(--muted); font-size: 13px; }
+.src a { color: var(--fg); }
+.grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .grid { grid-template-columns: minmax(0, 380px) minmax(0, 1fr); align-items: start; } .side { position: sticky; top: calc(12px + env(safe-area-inset-top, 0px)); } }
+.label { font-family: var(--f-display); font-weight: 600; text-transform: uppercase; letter-spacing: .12em; font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+.side, .main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.seg { display: grid; grid-template-columns: repeat(var(--n, 2), 1fr); gap: 6px; }
+.seg button {
+  font: 600 16px/1.1 var(--f-body); color: var(--fg); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 14px 8px; cursor: pointer; min-height: 52px;
+}
+.seg button small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 3px; }
+.seg button[aria-pressed="true"] { border-color: var(--team); background: color-mix(in srgb, var(--team) 16%, var(--panel)); }
+.seg button[data-side="hk"][aria-pressed="true"] { --team: var(--amber); }
+.seg button[data-side="m"][aria-pressed="true"] { --team: var(--sapphire); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.routes { display: flex; flex-direction: column; gap: 8px; }
+.route {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 4px 14px; align-items: center; text-align: left;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+  color: var(--fg); font: inherit; cursor: pointer;
+}
+.route[aria-pressed="true"] { border-color: var(--team); box-shadow: inset 3px 0 0 var(--team); }
+.route .t { font-family: var(--f-display); font-weight: 800; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; min-width: 2.4ch; }
+.route .t small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 1px; }
+.route .n { font-weight: 600; font-size: 16px; }
+.route .d { grid-column: 2 / 4; color: var(--muted); font-size: 13px; }
+.kind { font-family: var(--f-display); font-weight: 600; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
+.kind.short { color: var(--ok); } .kind.long { color: var(--warn); } .kind.extra { color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; grid-column: 2 / 4; }
+.chip { font-size: 12px; background: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 2px 7px; color: var(--fg); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 13px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; }
+
+/* Player */
+.stage { background: #000; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; position: relative; }
+/* Minimap and full video side by side at equal height: flex-grow matches each aspect ratio. */
+#viewer { margin-top: 20px; }
+.views { display: flex; gap: 12px; }
+.stage.mm { aspect-ratio: 0.841; flex: 0.841 1 0; }
+.stage.video { aspect-ratio: 16 / 9; flex: 1.778 1 0; }
+@media (max-width: 720px) {
+  .views { flex-direction: column; }
+  .stage.mm, .stage.video { flex: none; width: 100%; }
+  .stage.mm { max-width: calc(52vh * .841); margin: 0 auto; }
+}
+.stage iframe { position: absolute; border: 0; }
+.stage .ghost { position: absolute; left: 8px; top: 8px; font: 500 12px var(--f-mono); background: rgba(0,0,0,.65); color: var(--fg); padding: 3px 7px; border-radius: 4px; pointer-events: none; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn { font: 600 14px var(--f-body); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
+.btn[aria-pressed="true"] { border-color: var(--brass); color: var(--brass); }
+.linkcard { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.linkcard p { margin: 0; color: var(--muted); font-size: 13px; }
+
+/* Run panel */
+.run { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.runhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 8px 16px; }
+.clock { font-family: var(--f-display); font-weight: 800; font-size: clamp(64px, 18vw, 112px); line-height: .85; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.status { font-family: var(--f-display); font-weight: 600; font-size: 22px; text-transform: uppercase; letter-spacing: .06em; }
+.status.go { color: var(--ok); } .status.hurry { color: var(--warn); } .status.back { color: var(--bad); }
+.sub { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.bar { position: relative; height: 38px; background: var(--ink); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.bar .route-span { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--team) 22%, transparent); border-right: 2px solid var(--team); }
+.bar .fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: color-mix(in srgb, var(--fg) 14%, transparent); }
+.bar .now { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--fg); left: 0; }
+.bar .wave { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--bad); }
+.bar .wave span { position: absolute; top: 3px; left: 5px; font: 500 11px var(--f-mono); color: var(--bad); white-space: nowrap; }
+.bar .wave.flip span { left: auto; right: 5px; }
+.bar .wave.partner { background: var(--warn); } .bar .wave.partner span { color: var(--warn); }
+.scale { display: flex; justify-content: space-between; font: 500 11px var(--f-mono); color: var(--muted); margin-top: 4px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.start { font: 800 22px var(--f-display); text-transform: uppercase; letter-spacing: .08em; background: var(--team); color: var(--ink); border: 0; border-radius: 8px; padding: 14px 26px; cursor: pointer; flex: 1 1 180px; min-height: 58px; }
+.start.stop { background: var(--line); color: var(--fg); }
+.wavecfg { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.stepper { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.stepper button { background: var(--ink); color: var(--fg); border: 0; width: 40px; height: 40px; font-size: 18px; cursor: pointer; }
+.stepper output { min-width: 48px; display: grid; place-items: center; font: 500 14px var(--f-mono); color: var(--fg); background: var(--panel); }
+.tips { color: var(--muted); font-size: 13px; margin: 24px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; max-width: 65ch; }
+.tips b { color: var(--fg); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Box Routes <span>· City Never Sleeps</span></h1>
+    <div class="src">Ruter og tider fra <a href="https://www.youtube.com/watch?v=ls2P06a74HU" target="_blank" rel="noopener">Leif – Optimized Box Routes</a></div>
+  </header>
+
+  <div class="grid">
+    <section class="side" aria-label="Velg rute">
+      <div>
+        <p class="label">Side</p>
+        <div class="seg" id="sides" style="--n:2">
+          <button id="side-hk" data-side="hk" aria-pressed="false">Hidden King<small>Amber Hand</small></button>
+          <button id="side-m" data-side="m" aria-pressed="false">Archmother<small>Sapphire Flame</small></button>
+        </div>
+      </div>
+      <div>
+        <p class="label">Lane</p>
+        <div class="seg" id="lanes" style="--n:3">
+          <button id="lane-left" data-lane="left" aria-pressed="false">Venstre</button>
+          <button id="lane-mid" data-lane="mid" aria-pressed="false">Midt</button>
+          <button id="lane-right" data-lane="right" aria-pressed="false">Høyre</button>
+        </div>
+      </div>
+      <div>
+        <p class="label">Ruter</p>
+        <div class="routes" id="routes"></div>
+      </div>
+    </section>
+
+    <section class="main" aria-label="Valgt rute">
+      <div class="run">
+        <div class="runhead">
+          <div>
+            <p class="label" id="runname">Ingen rute valgt</p>
+            <div class="clock" id="clock">0.0</div>
+          </div>
+          <div style="text-align:right">
+            <div class="status" id="status">Klar</div>
+            <div class="sub" id="sub">Trykk Start når du forlater lanen</div>
+          </div>
+        </div>
+        <div>
+          <div class="bar" id="bar">
+            <div class="route-span" id="span"></div>
+            <div class="fill" id="fill"></div>
+            <div id="waves"></div>
+            <div class="now" id="now"></div>
+          </div>
+          <div class="scale"><span>0 s</span><span id="scalemid"></span><span id="scalemax"></span></div>
+        </div>
+        <div class="controls">
+          <button class="start" id="start">Start</button>
+          <div class="wavecfg">
+            <span>Neste bølge når lanen om</span>
+            <span class="stepper">
+              <button id="wave-minus" aria-label="Færre sekunder">−</button>
+              <output id="waveval">25 s</output>
+              <button id="wave-plus" aria-label="Flere sekunder">+</button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div id="viewer"></div>
+  <ul class="tips">
+    <li><b>Kort (under 30 s):</b> tar bokser de lange rutene ikke tar, og du er tilbake før neste bølge.</li>
+    <li><b>Lang (under 1 min):</b> hopper over én bølge. Lane-partner tar bølgen (400 souls), du tar igjen de 216 du mister med bokser.</li>
+    <li>Bølger kommer hvert 30. sekund tidlig i spillet. Still inn «Neste bølge» én gang; den huskes.</li>
+    <li>Short hop inn i heavy melee gir ekstra lengde og hjelper i ulendt terreng.</li>
+    <li>Leif fant rutene med Holiday og spilte dem inn på tregere helter. Rat King er 4–5 s tregere enn Holiday.</li>
+  </ul>
+</div>
+
+<script>
+const VIDEO = "ls2P06a74HU";
+// start = second in the video where the route timer starts; dur = Leif's final timer.
+const ROUTES = [
+  { side: "hk", lane: "mid",   kind: "long",  name: "HK Mid Long",    start: 0,     dur: 52.00, n: 24, tough: 5, statues: 5,  souls: 700 },
+  { side: "hk", lane: "mid",   kind: "short", name: "HK Mid Short",   start: 54.64, dur: 26.16 },
+  { side: "hk", lane: "right", kind: "long",  name: "HK Right Long",  start: 81.6,  dur: 58.41, n: 22, tough: 5, statues: 7,  souls: 670 },
+  { side: "hk", lane: "right", kind: "short", name: "HK Right Short", start: 140.6, dur: 28.41 },
+  { side: "hk", lane: "left",  kind: "long",  name: "HK Left Long",   start: 169.6, dur: 48.94, n: 8,  tough: 7, statues: 11, souls: 540 },
+  { side: "m",  lane: "mid",   kind: "long",  name: "M Mid Long",     start: 234.6, dur: 57.81, n: 30, tough: 4, statues: 9,  souls: 750 },
+  { side: "m",  lane: "mid",   kind: "short", name: "M Mid Short",    start: 293.6, dur: 25.06 },
+  { side: "m",  lane: "right", kind: "long",  name: "M Right Long",   start: 319.6, dur: 57.21, n: 25, tough: 4, statues: 8,  souls: 660 },
+  { side: "m",  lane: "right", kind: "short", name: "M Right Short",  start: 377.6, dur: 29.23 },
+  { side: "m",  lane: "right", kind: "extra", name: "M Right Extra",  start: 407,   dur: 14, untimed: true },
+  { side: "m",  lane: "left",  kind: "long",  name: "M Left Long",    start: 421.6, dur: 58.01, n: 20, tough: 7, statues: 10, souls: 750 },
+  { side: "m",  lane: "left",  kind: "short", name: "M Left Short",   start: 480.6, dur: 26.35 },
+];
+const KIND = { short: "Kort", long: "Lang", extra: "Ekstra" };
+const DESC = {
+  short: "Tilbake før neste bølge.",
+  long: "Hopper over én bølge – partner tar den.",
+  extra: "Kort tillegg i videoen, uten timer. Se klippet.",
+};
+// Minimap position inside the 16:9 video frame (fractions of width/height).
+const MM = { x: 0.787, y: 0.468, w: 0.175, h: 0.37 };
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("cnsbox." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("cnsbox." + k, JSON.stringify(v)); } catch {} },
+};
+
+let side = store.get("side", "hk");
+let lane = store.get("lane", "mid");
+let route = null;
+let waveIn = store.get("waveIn", 25);
+let runStart = 0, running = false, raf = 0, wakeLock = null, audio = null, beeped = {};
+
+// --- Embed or link mode -------------------------------------------------
+// Artifacts block YouTube iframes, so there the page links out instead.
+let mode = /claude\.(ai|site)|claudeusercontent|anthropic/.test(location.hostname) || location.protocol === "file:" ? "link" : "pending";
+let players = [];
+
+function loadYT() {
+  if (mode !== "pending") return;
+  const s = document.createElement("script");
+  s.src = "https://www.youtube.com/iframe_api";
+  s.onerror = () => { mode = "link"; renderViewer(); };
+  setTimeout(() => { if (mode === "pending") { mode = "link"; renderViewer(); } }, 6000);
+  document.head.appendChild(s);
+}
+window.onYouTubeIframeAPIReady = () => { if (mode === "pending") { mode = "embed"; renderViewer(); } };
+
+function ytLink(t) { return `https://www.youtube.com/watch?v=${VIDEO}&t=${Math.max(0, Math.floor(t))}s`; }
+
+function renderViewer() {
+  const el = $("viewer");
+  if (!route) { el.innerHTML = `<div class="note">Velg side, lane og rute for å se klippet.</div>`; return; }
+  if (mode === "embed") {
+    if (!$("stage-mm")) {
+      el.innerHTML = `
+        <div class="views">
+          <div class="stage mm" id="stage-mm"><div id="yt-mm"></div><div class="ghost" id="ghost" hidden></div></div>
+          <div class="stage video" id="stage-video"><div id="yt-video"></div></div>
+        </div>`;
+      // Two muted players of the same video: one cropped to the minimap, one showing the whole frame.
+      players = ["mm", "video"].map(id => {
+        const p = new YT.Player("yt-" + id, {
+          videoId: VIDEO,
+          playerVars: { playsinline: 1, rel: 0, modestbranding: 1, controls: id === "video" ? 1 : 0, mute: 1, start: Math.floor(route.start), origin: location.origin },
+          events: {
+            onReady: () => { p.ready = true; p.mute(); if (id === "mm") sizeFrame(); if (!running) { p.seekTo(route.start, true); p.pauseVideo(); } },
+            onError: () => { mode = "link"; players.forEach(q => q.destroy()); players = []; renderViewer(); },
+          },
+        });
+        return p;
+      });
+      sizeFrame();
+    }
+    if (!running) readyPlayers().forEach(p => { p.seekTo(route.start, true); p.pauseVideo(); });
+    return;
+  }
+  if (mode === "pending") { el.innerHTML = `<div class="note">Laster videospiller…</div>`; return; }
+  el.innerHTML = `
+    <div class="linkcard">
+      <a class="btn" id="l-clip" href="${ytLink(route.start)}" target="_blank" rel="noopener">▶ Se klippet: ${route.name} (${fmtClock(route.start)}) ↗</a>
+      <a class="btn" id="l-now" href="${ytLink(route.start)}" target="_blank" rel="noopener">Åpne videoen der du bør være nå ↗</a>
+      <p>Denne visningen kan ikke spille video inne i siden. Lenkene åpner YouTube på riktig sekund. «Der du bør være nå» følger timeren mens ruta kjører.</p>
+    </div>`;
+}
+
+function readyPlayers() { return players.filter(p => p.ready); }
+function sizeFrame() {
+  const stage = $("stage-mm"), f = stage && stage.querySelector("iframe");
+  if (f) {
+    const fw = stage.clientWidth / MM.w, fh = fw * 9 / 16;
+    Object.assign(f.style, { width: fw + "px", height: fh + "px", left: -MM.x * fw + "px", top: -MM.y * fh + "px" });
+  }
+  const v = $("stage-video"), g = v && v.querySelector("iframe");
+  if (g) Object.assign(g.style, { width: "100%", height: "100%", left: 0, top: 0 });
+}
+addEventListener("resize", sizeFrame);
+
+// --- Selection ---------------------------------------------------------
+function renderPick() {
+  document.body.dataset.side = side;
+  document.querySelectorAll("#sides button").forEach(b => b.setAttribute("aria-pressed", b.dataset.side === side));
+  document.querySelectorAll("#lanes button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lane === lane));
+  const list = ROUTES.filter(r => r.side === side && r.lane === lane)
+    .sort((a, b) => ["short", "long", "extra"].indexOf(a.kind) - ["short", "long", "extra"].indexOf(b.kind));
+  if (!list.includes(route)) route = list[0] || null;
+  $("routes").innerHTML = list.map((r, i) => `
+    <button class="route" data-i="${ROUTES.indexOf(r)}" aria-pressed="${r === route}">
+      <span class="t">${r.untimed ? "~" : ""}${Math.round(r.dur)}<small>s</small></span>
+      <span class="n">${r.name}</span>
+      <span class="kind ${r.kind}">${KIND[r.kind]}</span>
+      <span class="d">${DESC[r.kind]}</span>
+      ${r.n ? `<span class="chips">
+        <span class="chip">${r.n} vanlige</span><span class="chip">${r.tough} tough</span>
+        <span class="chip">${r.statues} statuer</span><span class="chip">≈${r.souls} souls ved 3:00</span></span>` : ""}
+    </button>`).join("") +
+    (side === "hk" && lane === "left" ? `<div class="note">Videoen har ingen kort rute for HK venstre lane.</div>` : "");
+  document.querySelectorAll(".route").forEach(b => b.onclick = () => { stopRun(); route = ROUTES[+b.dataset.i]; renderPick(); });
+  renderViewer();
+  renderBar(0);
+  $("runname").textContent = route ? route.name : "Ingen rute valgt";
+}
+document.querySelectorAll("#sides button").forEach(b => b.onclick = () => { stopRun(); side = b.dataset.side; store.set("side", side); renderPick(); });
+document.querySelectorAll("#lanes button").forEach(b => b.onclick = () => { stopRun(); lane = b.dataset.lane; store.set("lane", lane); renderPick(); });
+
+// --- Run timer ---------------------------------------------------------
+function horizon() { return route ? Math.max(route.dur, waveIn + 30) + 6 : 60; }
+function renderWaves() {
+  const H = horizon(), long = route && route.kind === "long";
+  const marks = (long ? [waveIn, waveIn + 30] : [waveIn]).filter(t => t < H);
+  $("waves").innerHTML = marks.map((t, i) => {
+    const partner = long && i === 0;
+    const txt = partner ? "partner tar bølgen" : "vær i lane";
+    return `<div class="wave ${partner ? "partner" : ""} ${t / H > 0.6 ? "flip" : ""}" style="left:${t / H * 100}%"><span>${txt}</span></div>`;
+  }).join("");
+  $("scalemid").textContent = Math.round(H / 2) + " s";
+  $("scalemax").textContent = Math.round(H) + " s";
+}
+function renderBar(t) {
+  const H = horizon();
+  $("span").style.width = route ? (route.dur / H * 100) + "%" : "0";
+  $("fill").style.width = Math.min(100, t / H * 100) + "%";
+  $("now").style.left = `calc(${Math.min(100, t / H * 100)}% - 1px)`;
+  renderWaves();
+}
+function fmtClock(s) { const m = Math.floor(s / 60); return m + ":" + String(Math.floor(s % 60)).padStart(2, "0"); }
+
+function backBy() {
+  // The wave you must be back for: the next one for short routes, the second for long ones.
+  return route.kind === "long" ? waveIn + 30 : waveIn;
+}
+
+function tick() {
+  const t = (Date.now() - runStart) / 1000;
+  $("clock").textContent = t.toFixed(1);
+  renderBar(t);
+  const left = route.dur - t, back = backBy() - t;
+  const st = $("status"), sub = $("sub");
+  if (left > 5) { st.textContent = "Følg ruta"; st.className = "status go"; }
+  else if (left > 0) { st.textContent = "Siste boks"; st.className = "status hurry"; beep("end5", 660); }
+  else { st.textContent = "Tilbake til lane"; st.className = "status back"; beep("end", 440, 0.35); }
+  sub.textContent = (left > 0 ? `Rute ferdig om ${left.toFixed(0)} s · ` : "") +
+    (back > 0 ? `Bølge du må rekke om ${back.toFixed(0)} s` : "Bølgen er i lane");
+  if (mode === "embed") {
+    const want = route.start + Math.min(t, route.dur);
+    readyPlayers().forEach(p => {
+      if (t <= route.dur + 0.2) {
+        if (Math.abs(p.getCurrentTime() - want) > 0.8) p.seekTo(want, true);
+        if (p.getPlayerState() !== 1) p.playVideo();
+      } else if (p.getPlayerState() === 1) p.pauseVideo();
+    });
+    const g = $("ghost"); if (g) { g.hidden = false; g.textContent = "Ghost " + Math.min(t, route.dur).toFixed(1) + " s"; }
+  }
+  const ln = $("l-now"); if (ln) ln.href = ytLink(route.start + Math.min(t, route.dur));
+  if (t > horizon() + 10) return stopRun(true);
+  raf = requestAnimationFrame(tick);
+}
+function beep(key, freq, len = 0.15) {
+  if (beeped[key] || !audio) return; beeped[key] = true;
+  try {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.frequency.value = freq; g.gain.value = 0.15; o.connect(g).connect(audio.destination);
+    o.start(); o.stop(audio.currentTime + len);
+  } catch {}
+}
+async function startRun() {
+  if (!route) return;
+  running = true; beeped = {}; runStart = Date.now();
+  try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch {}
+  try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {}
+  readyPlayers().forEach(p => { p.seekTo(route.start, true); p.playVideo(); });
+  $("start").textContent = "Stopp"; $("start").classList.add("stop");
+  tick();
+}
+function stopRun(keep) {
+  if (!running) return;
+  running = false; cancelAnimationFrame(raf);
+  try { wakeLock && wakeLock.release(); } catch {} wakeLock = null;
+  $("start").textContent = "Start"; $("start").classList.remove("stop");
+  if (!keep) { $("clock").textContent = "0.0"; $("status").textContent = "Klar"; $("status").className = "status"; $("sub").textContent = "Trykk Start når du forlater lanen"; renderBar(0); }
+  readyPlayers().forEach(p => p.pauseVideo());
+  const g = $("ghost"); if (g) g.hidden = true;
+}
+$("start").onclick = () => running ? stopRun() : startRun();
+function setWave(v) { waveIn = Math.max(0, Math.min(30, v)); store.set("waveIn", waveIn); $("waveval").textContent = waveIn + " s"; renderBar(running ? (Date.now() - runStart) / 1000 : 0); }
+$("wave-minus").onclick = () => setWave(waveIn - 5);
+$("wave-plus").onclick = () => setWave(waveIn + 5);
+addEventListener("keydown", e => { if (e.code === "Space" && e.target === document.body) { e.preventDefault(); running ? stopRun() : startRun(); } });
+
+setWave(waveIn);
+renderPick();
+loadYT();
+</script>
+
+</body>
+</html>
